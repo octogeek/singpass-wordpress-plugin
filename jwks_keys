@@ -1,0 +1,22 @@
+{
+    "keys": [
+        {
+            "kty": "EC",
+            "use": "sig",
+            "crv": "P-256",
+            "kid": "octopus8_sig_key_01",
+            "x": "25qGBnzAT1kA0t41In4HYFC3p0RCLbCILKu3Pgepj90",
+            "y": "ZoE2CNnKgR-MAIbRiEIoj8rzbhL9UicUyHE-qzV2NsE",
+            "alg": "ES256"
+        },
+        {
+            "kty": "EC",
+            "use": "enc",
+            "crv": "P-256",
+            "kid": "octopus8_enc_key_01",
+            "x": "OZ0iGy9uaK-esgDx021JalqAh8Kyop4m0v8OvSSq5UQ",
+            "y": "httcDJHMKWVQ3vtiBKXJRnUcPpYdojzXT2IhdFVpFLw",
+            "alg": "ECDH-ES+A128KW"
+        }
+    ]
+}

@@ -1,0 +1,21 @@
+{
+  "typ" : "JWT",
+  "alg" : "ES256",
+  "kid" : "rp_key_01"
+}
+
+{
+    "iss": "https://asliddin.socialservicesconnect.com/",
+    "sub": "hCqn1a2gQFi6QLPeaw3LIWP3LQ2E5f0r",
+    "aud": "https://stg-id.singpass.gov.sg",
+    "exp": strtotime($Date.'+2 mins'),
+    "iat": strtotime($Date.'+0 mins')
+  }
+
+  {
+    "iss": "http://example.com",
+    "sub": "hCqn1a2gQFi6QLPeaw3LIWP3LQ2E5f0r",
+    "aud": "https://stg-id.singpass.gov.sg",
+    "exp": 1649836511,
+    "iat": 1649836391
+  }
