@@ -98,7 +98,6 @@ function oidc_signin_callback($params)
 			'key' => $encPrivateKey,
 			'jwt' => $jwt->{'id_token'}
 		);
-		var_dump($body);
 		$headers = [
 			'Accept: application/json',
 			'charset: UTF-8',
