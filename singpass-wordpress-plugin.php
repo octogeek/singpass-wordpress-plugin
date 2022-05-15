@@ -12,10 +12,7 @@
 require('views/qr-partial.php');
 require_once dirname(__FILE__) . '/vendor/autoload.php';
 
-use GuzzleHttp\Client;
 use Firebase\JWT\JWT;
-use Firebase\JWT\JWK;
-use Firebase\JWT\Key;
 
 function singpass_button()
 {
@@ -114,16 +111,19 @@ function oidc_signin_callback($params)
 		$user_id =  username_exists($username);
 
 		echo $username . PHP_EOL;
+		echo $user_id . PHP_EOL;
 		echo $state . PHP_EOL;
-
-		if ($user_id && strcmp($state, $nonce)) {
+		if ($user_id && strcmp($state, $nonce) == 0) {
+			echo 'logged in' . PHP_EOL;
+			wp_clear_auth_cookie();
 			wp_set_auth_cookie($user_id);
-			//echo 'logged in' . PHP_EOL;
+			echo 'cookie set' . PHP_EOL;
 		}
 	} catch (Exception $e) {
-		wp_redirect(admin_url());
 	}
+	echo 'redirectiong' . PHP_EOL;
 	wp_redirect(admin_url());
+	echo 'redirected' . PHP_EOL;
 
 	exit();
 }
@@ -147,7 +147,6 @@ function curl_post($url, $header, $body)
 			$content_body = json_encode($body);
 			break;
 	}
-
 
 	$curlOptions = array(
 		CURLOPT_URL => $url,
@@ -208,7 +207,13 @@ function create_settings()
 	register_setting("$plugin_name._settings", "private_enc_key");
 }
 
+function app_output_buffer() {
+	ob_clean();
+	ob_start();
+} 
+
 $plugin_name = plugin_basename(__FILE__);
+add_action('init', 'app_output_buffer');
 add_action('admin_init', 'create_settings');
 add_filter("plugin_action_links_$plugin_name", 'settings_link');
 add_action('admin_menu', 'add_admin_page');
@@ -233,7 +238,6 @@ wp_register_script('bootstrap-js', 'https://cdn.jsdelivr.net/npm/bootstrap@5.0.2
 wp_enqueue_script('bootstrap-js');
 wp_register_style('bootstrap-css', 'https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/css/bootstrap.min.css');
 wp_enqueue_style('bootstrap-css');
-///(?P<id>[\d]+)
 //http://localhost/singpass/wp-json/singpass/v1/jwks
 //http://asliddin.socialservicesconnect.com/wp-json/singpass/v1/jwks
 //http://asliddin.socialservicesconnect.com/wp-json/singpass/v1/signin_oidc?code=wHmXksdAROOBM8mdRbkKLl5VBROhVfP_67jZIiJtmao&state=NGRlZThmNzQtZDU5YS00YTY1LWFkODItYmE4NDA4Y2UwY2Uw
