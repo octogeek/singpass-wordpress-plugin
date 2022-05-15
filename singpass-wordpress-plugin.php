@@ -36,130 +36,138 @@ function singpass_jwks()
 function oidc_signin_callback($params)
 {
 	$protocol = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off' ? 'https' : 'http';
-    $url = $protocol . "://$_SERVER[HTTP_HOST]";
-    $plugin_name = explode('/', plugin_basename(__FILE__))[0];
+	$url = $protocol . "://$_SERVER[HTTP_HOST]";
+	$plugin_name = explode('/', plugin_basename(__FILE__))[0];
 
 	$sig_kid = '';
-	$encPrivateKey = null;	
+	$encPrivateKey = null;
 
-	//try {
-	$code = $params->get_param('code');
-	$state = $params->get_param('state');
-	$token_url = get_option('token_url');//'https://stg-id.singpass.gov.sg/token';
-	$callback_url = get_option('callback_url');//"$url/wp-json/singpass/v1/signin_oidc";
-	$parser_url = get_option('token_parser_url');//'http://asliddin-jwt.socialservicesconnect.com:5000/parser';
-	//$parser_url = 'http://ec2-52-59-238-40.eu-central-1.compute.amazonaws.com:5000/parser';
+	try {
+		$code = $params->get_param('code');
+		$state = $params->get_param('state');
+		$token_url = get_option('token_url'); //'https://stg-id.singpass.gov.sg/token';
+		$callback_url = get_option('callback_url'); //"$url/wp-json/singpass/v1/signin_oidc";
+		$parser_url = get_option('token_parser_url'); //'http://asliddin-jwt.socialservicesconnect.com:5000/parser';
+		//$parser_url = 'http://ec2-52-59-238-40.eu-central-1.compute.amazonaws.com:5000/parser';
 
-	$singpass_client = get_option('singpass_client');//'hCqn1a2gQFi6QLPeaw3LIWP3LQ2E5f0r';
-	$sigPrivateKey = get_option('private_sig_key');
+		$singpass_client = get_option('singpass_client'); //'hCqn1a2gQFi6QLPeaw3LIWP3LQ2E5f0r';
+		$sigPrivateKey = get_option('private_sig_key');
 
-	$public_jwks = json_decode(get_option('public_jwks'));
-	foreach($public_jwks->{'keys'} as $jwk){
-		if(strcmp($jwk->{'use'},'sig')==0) $sig_kid = $jwk->{'kid'};
+		$public_jwks = json_decode(get_option('public_jwks'));
+		foreach ($public_jwks->{'keys'} as $jwk) {
+			if (strcmp($jwk->{'use'}, 'sig') == 0) $sig_kid = $jwk->{'kid'};
+		}
+
+		$private_jwks = json_decode(get_option('private_jwks'));
+		foreach ($private_jwks->{'keys'} as $jwk) {
+			if (strcmp($jwk->{'use'}, 'enc') == 0) $encPrivateKey = $jwk;
+		}
+
+		$domain = parse_url($token_url);
+		$payload = array(
+			"iss" => $singpass_client,
+			"sub" => $singpass_client,
+			"aud" => $domain['scheme'] . '://' . $domain['host'],
+			"exp" => strtotime($Date . '+2 mins'),
+			"iat" => strtotime($Date . '+0 mins')
+		);
+
+		// $token = JWT::encode($payload, $sigPrivateKey, 'ES256', $sig_kid);
+		$token = JWT::encode($payload, $sigPrivateKey, 'ES256', $sig_kid);
+
+		$body = array(
+			'code' => $code,
+			'client_assertion_type' => 'urn:ietf:params:oauth:client-assertion-type:jwt-bearer',
+			'client_assertion' => $token,
+			'client_id' => $singpass_client,
+			'scope' => 'openid',
+			'grant_type' => 'authorization_code',
+			'redirect_uri' => $callback_url
+		);
+
+		$headers = array(
+			'Accept: application/json',
+			'charset: ISO-8859-1',
+			'Content-Type: application/x-www-form-urlencoded'
+		);
+
+		$jwt = curl_post($token_url, $headers, $body);
+		//var_dump($jwt);
+
+		$body = array(
+			'key' => $encPrivateKey,
+			'jwt' => $jwt->{'id_token'}
+		);
+		var_dump($body);
+		$headers = [
+			'Accept: application/json',
+			'charset: UTF-8',
+			'Content-Type: application/json',
+		];
+
+		$parser_jwt = curl_post($parser_url, $headers, $body);
+		//var_dump($parser_jwt);
+
+		$user_data = explode(',', $parser_jwt->{'sub'});
+		$username = explode('=', $user_data[0])[1];
+		$nonce = $parser_jwt->{'nonce'};
+
+		$user_id =  username_exists($username);
+
+		echo $username . PHP_EOL;
+		echo $state . PHP_EOL;
+
+		if ($user_id && strcmp($state, $nonce)) {
+			wp_set_auth_cookie($user_id);
+			//echo 'logged in' . PHP_EOL;
+		}
+	} catch (Exception $e) {
+		wp_redirect(admin_url());
+	}
+	wp_redirect(admin_url());
+
+	exit();
+}
+
+function curl_post($url, $header, $body)
+{
+
+	$c_type = '';
+
+	foreach ($header as $item) {
+		$row = explode(':', $item);
+		if (strcmp(strtolower(trim($row[0])), 'content-type') == 0) {
+			$c_type = trim($row[1]);
+		}
+	}
+	switch ($c_type) {
+		case 'application/x-www-form-urlencoded':
+			$content_body = http_build_query($body);
+			break;
+		case 'application/json':
+			$content_body = json_encode($body);
+			break;
 	}
 
-	$private_jwks = json_decode(get_option('private_jwks'));
-	foreach($private_jwks->{'keys'} as $jwk){
-		if(strcmp($jwk->{'use'},'enc')==0) $encPrivateKey = $jwk;
-	}
-
-	// $sig_kid = 'octopus8_sig_key_01';
-	// $encPrivateKey = json_decode('{"kty": "EC","d": "cV6QfdH46rZ1t5qYAq9IiZOmkxbQxoU1S_oYr0BDYdI","use": "enc","crv": "P-256","kid": "octopus8_enc_key_01","x": "OZ0iGy9uaK-esgDx021JalqAh8Kyop4m0v8OvSSq5UQ","y": "httcDJHMKWVQ3vtiBKXJRnUcPpYdojzXT2IhdFVpFLw","alg": "ECDH-ES+A128KW"}');
-	// $sigPrivateKey = <<<EOD
-	// 	-----BEGIN PRIVATE KEY-----
-	// 	MEECAQAwEwYHKoZIzj0CAQYIKoZIzj0DAQcEJzAlAgEBBCAn2IkQq8dNpSxE+u5l
-	// 	Awme+XPDnCkWp9+NvhrcW+tS7A==
-	// 	-----END PRIVATE KEY-----
-	// 	EOD;
-
-	$domain = parse_url($token_url);
-	$payload = array(
-		"iss" => $singpass_client,
-		"sub" => $singpass_client,
-		"aud" => $domain['scheme'] . '://' . $domain['host'],
-		"exp" => strtotime($Date . '+2 mins'),
-		"iat" => strtotime($Date . '+0 mins')
-	);
-
-	// $token = JWT::encode($payload, $sigPrivateKey, 'ES256', $sig_kid);
-	$token = JWT::encode($payload, $sigPrivateKey, 'ES256', $sig_kid);
-	var_dump($token);
-	$body = array(
-		'code' => $code,
-		'client_assertion_type' => 'urn:ietf:params:oauth:client-assertion-type:jwt-bearer',
-		'client_assertion' => $token,
-		'client_id' => $singpass_client,
-		'scope' => 'openid',
-		'grant_type' => 'authorization_code',
-		'redirect_uri' => $callback_url
-	);
-
-	$headers = array(
-		'Accept: application/json',
-		'charset: ISO-8859-1',
-		'Content-Type: application/x-www-form-urlencoded'
-	);
 
 	$curlOptions = array(
-		CURLOPT_URL => $token_url,
+		CURLOPT_URL => $url,
 		CURLOPT_RETURNTRANSFER => TRUE,
 		CURLOPT_FOLLOWLOCATION => TRUE,
 		CURLOPT_VERBOSE => TRUE,
 		CURLOPT_STDERR => $verbose = fopen('php://temp', 'rw+'),
 		CURLOPT_FILETIME => TRUE,
 		CURLOPT_POST => TRUE,
-		CURLOPT_HTTPHEADER => $headers,
-		CURLOPT_POSTFIELDS => http_build_query($body)
+		CURLOPT_HTTPHEADER => $header,
+		CURLOPT_POSTFIELDS => $content_body
 	);
 	$curl = curl_init();
 	curl_setopt_array($curl, $curlOptions);
 	$response = curl_exec($curl);
 	curl_close($curl);
 
-	$jwt = json_decode($response);
-	var_dump($response);
-
-	$body = json_encode(array(
-		'key' => $encPrivateKey,
-		'jwt' => $jwt->{'id_token'}
-	));
-	var_dump($jwt->{'id_token'});
-	$headers = [
-		'Accept' => 'application/json',
-		'charset' => 'UTF-8',
-		'Content-Type' => 'application/json',
-	];
-
-	$client = new Client();
-	$res = $client->request('POST', $parser_url, [
-		'headers' => $headers,
-		'body' => $body
-	]);
-
-	$response = $res->getBody();
-	var_dump($response);
-	$user_data = explode(',', $response->{'sub'});
-	$username = explode('=', $user_data[0])[1];
-	$nonce = $response->{'nonce'};
-
-	$user_id =  username_exists($username);
-
-	echo $username . PHP_EOL;
-	echo $state . PHP_EOL;
-
-	if ($user_id && strcmp($state, $nonce)) {
-		//wp_set_auth_cookie($user_id);
-		echo 'logged in' . PHP_EOL;
-	}
-	// } catch (Exception $e) {
-	// 	wp_redirect(admin_url());
-	// }
-	// wp_redirect(admin_url());
-
-	// exit();
-
+	return json_decode($response);
 }
-
 function call_qr_code()
 {
 	show_qr_code();
