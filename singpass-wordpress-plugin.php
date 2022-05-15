@@ -106,24 +106,23 @@ function oidc_signin_callback($params)
 
 		$user_data = explode(',', $parser_jwt->{'sub'});
 		$username = explode('=', $user_data[0])[1];
+		//var_dump($username);
 		$nonce = $parser_jwt->{'nonce'};
 
 		$user_id =  username_exists($username);
 
-		echo $username . PHP_EOL;
-		echo $user_id . PHP_EOL;
-		echo $state . PHP_EOL;
+		// echo $username . PHP_EOL;
+		// echo $user_id . PHP_EOL;
+		// echo $state . PHP_EOL;
 		if ($user_id && strcmp($state, $nonce) == 0) {
-			echo 'logged in' . PHP_EOL;
 			wp_clear_auth_cookie();
 			wp_set_auth_cookie($user_id);
-			echo 'cookie set' . PHP_EOL;
+		} else {
+			if (!is_null($username)) login_error_message($username);
 		}
 	} catch (Exception $e) {
 	}
-	echo 'redirectiong' . PHP_EOL;
 	wp_redirect(admin_url());
-	echo 'redirected' . PHP_EOL;
 
 	exit();
 }
@@ -132,20 +131,23 @@ function curl_post($url, $header, $body)
 {
 
 	$c_type = '';
-
-	foreach ($header as $item) {
-		$row = explode(':', $item);
-		if (strcmp(strtolower(trim($row[0])), 'content-type') == 0) {
-			$c_type = trim($row[1]);
+	if (!is_null($header)) {
+		foreach ($header as $item) {
+			$row = explode(':', $item);
+			if (strcmp(strtolower(trim($row[0])), 'content-type') == 0) {
+				$c_type = trim($row[1]);
+			}
 		}
-	}
-	switch ($c_type) {
-		case 'application/x-www-form-urlencoded':
-			$content_body = http_build_query($body);
-			break;
-		case 'application/json':
-			$content_body = json_encode($body);
-			break;
+		switch ($c_type) {
+			case 'application/x-www-form-urlencoded':
+				$content_body = http_build_query($body);
+				break;
+			case 'application/json':
+				$content_body = json_encode($body);
+				break;
+		}
+	} else {
+		$header = array();
 	}
 
 	$curlOptions = array(
@@ -193,6 +195,20 @@ function settings_link($links)
 	return $links;
 }
 
+function singpass_login_error($user, $username, $password)
+{
+	return new WP_Error('my_error', __('<strong>Error</strong>: The username <strong>' . $username . '</strong> is not registered on this site. If you are unsure of your username, try your email address instead.'));
+}
+
+function login_error_message($username)
+{
+
+	//wp_signon( array( 'user_login' => $username, 'user_password' => '1', 'remember' => false ), false );
+
+	wp_redirect(wp_login_url() . '?login=failed');
+	exit();
+}
+
 function create_settings()
 {
 	$plugin_name = explode('/', plugin_basename(__FILE__))[0];
@@ -207,12 +223,19 @@ function create_settings()
 	register_setting("$plugin_name._settings", "private_enc_key");
 }
 
-function app_output_buffer() {
+function app_output_buffer()
+{
 	ob_clean();
 	ob_start();
-} 
-
+}
+function my_front_end_login_fail()
+{
+	wp_redirect(wp_login_url());
+	exit(); // you need to manually exit to get wp_redirect to work
+}
 $plugin_name = plugin_basename(__FILE__);
+remove_action('authenticate', 'wp_authenticate_username_password', 20);
+add_filter('authenticate', 'singpass_login_error', 10, 3);
 add_action('init', 'app_output_buffer');
 add_action('admin_init', 'create_settings');
 add_filter("plugin_action_links_$plugin_name", 'settings_link');
