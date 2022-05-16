@@ -32,6 +32,7 @@ function singpass_jwks()
 
 function oidc_signin_callback($params)
 {
+	
 	$protocol = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off' ? 'https' : 'http';
 	$url = $protocol . "://$_SERVER[HTTP_HOST]";
 	$plugin_name = explode('/', plugin_basename(__FILE__))[0];
@@ -110,7 +111,6 @@ function oidc_signin_callback($params)
 		$nonce = $parser_jwt->{'nonce'};
 
 		$user_id =  username_exists($username);
-
 		// echo $username . PHP_EOL;
 		// echo $user_id . PHP_EOL;
 		// echo $state . PHP_EOL;
@@ -194,19 +194,18 @@ function settings_link($links)
 	array_push($links, $settins_link);
 	return $links;
 }
-
-function singpass_login_error($user, $username, $password)
-{
-	return new WP_Error('my_error', __('<strong>Error</strong>: The username <strong>' . $username . '</strong> is not registered on this site. If you are unsure of your username, try your email address instead.'));
-}
-
 function login_error_message($username)
 {
-
-	//wp_signon( array( 'user_login' => $username, 'user_password' => '1', 'remember' => false ), false );
-
-	wp_redirect(wp_login_url() . '?login=failed');
+	wp_safe_redirect(wp_login_url().'/?msg=' . $username);
 	exit();
+}
+
+function user_access() {
+    global $error;
+	$username = $_GET['msg'];
+	$msg_id = isset($_GET['msg']) ? $_GET['err'] : 0;
+	if(isset($_GET['msg']))
+		$error  = '<strong>Error</strong>: The username <strong>' . $username . '</strong> is not registered on this site. If you are unsure of your username, try your email address instead.';
 }
 
 function create_settings()
@@ -228,14 +227,9 @@ function app_output_buffer()
 	ob_clean();
 	ob_start();
 }
-function my_front_end_login_fail()
-{
-	wp_redirect(wp_login_url());
-	exit(); // you need to manually exit to get wp_redirect to work
-}
+
 $plugin_name = plugin_basename(__FILE__);
-remove_action('authenticate', 'wp_authenticate_username_password', 20);
-add_filter('authenticate', 'singpass_login_error', 10, 3);
+add_action('login_head','user_access');
 add_action('init', 'app_output_buffer');
 add_action('admin_init', 'create_settings');
 add_filter("plugin_action_links_$plugin_name", 'settings_link');
@@ -261,6 +255,7 @@ wp_register_script('bootstrap-js', 'https://cdn.jsdelivr.net/npm/bootstrap@5.0.2
 wp_enqueue_script('bootstrap-js');
 wp_register_style('bootstrap-css', 'https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/css/bootstrap.min.css');
 wp_enqueue_style('bootstrap-css');
+
 //http://localhost/singpass/wp-json/singpass/v1/jwks
 //http://asliddin.socialservicesconnect.com/wp-json/singpass/v1/jwks
 //http://asliddin.socialservicesconnect.com/wp-json/singpass/v1/signin_oidc?code=wHmXksdAROOBM8mdRbkKLl5VBROhVfP_67jZIiJtmao&state=NGRlZThmNzQtZDU5YS00YTY1LWFkODItYmE4NDA4Y2UwY2Uw
