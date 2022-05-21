@@ -20,13 +20,10 @@ function singpass_button()
 	echo '<div class="d-flex justify-content-center" data-bs-toggle="modal" data-bs-target="#qr_code_modal">
 	<a class="btn btn-outline-secondary btn-lg p-1"><img src=' . $path . 'assets/singpass_logo_fullcolours.png width=100px /></a>
 	</div>';
-
-	//	echo '<button type="button" class="btn btn-outline-secondary">Secondary</button>';
 }
 
 function singpass_jwks()
 {
-	//$file = file_get_contents('jwks_keys', true);
 	echo get_option('public_jwks');
 }
 
@@ -43,12 +40,11 @@ function oidc_signin_callback($params)
 	try {
 		$code = $params->get_param('code');
 		$state = $params->get_param('state');
-		$token_url = get_option('token_url'); //'https://stg-id.singpass.gov.sg/token';
-		$callback_url = get_option('callback_url'); //"$url/wp-json/singpass/v1/signin_oidc";
-		$parser_url = get_option('token_parser_url'); //'http://asliddin-jwt.socialservicesconnect.com:5000/parser';
-		//$parser_url = 'http://ec2-52-59-238-40.eu-central-1.compute.amazonaws.com:5000/parser';
+		$token_url = get_option('token_url');
+		$callback_url = get_option('callback_url');
+		$parser_url = get_option('token_parser_url');
 
-		$singpass_client = get_option('singpass_client'); //'hCqn1a2gQFi6QLPeaw3LIWP3LQ2E5f0r';
+		$singpass_client = get_option('singpass_client');
 		$sigPrivateKey = get_option('private_sig_key');
 
 		$public_jwks = json_decode(get_option('public_jwks'));
@@ -70,7 +66,6 @@ function oidc_signin_callback($params)
 			"iat" => strtotime($Date . '+0 mins')
 		);
 
-		// $token = JWT::encode($payload, $sigPrivateKey, 'ES256', $sig_kid);
 		$token = JWT::encode($payload, $sigPrivateKey, 'ES256', $sig_kid);
 
 		$body = array(
@@ -90,7 +85,6 @@ function oidc_signin_callback($params)
 		);
 
 		$jwt = curl_post($token_url, $headers, $body);
-		//var_dump($jwt);
 
 		$body = array(
 			'key' => $encPrivateKey,
@@ -103,17 +97,13 @@ function oidc_signin_callback($params)
 		];
 
 		$parser_jwt = curl_post($parser_url, $headers, $body);
-		//var_dump($parser_jwt);
 
 		$user_data = explode(',', $parser_jwt->{'sub'});
 		$username = explode('=', $user_data[0])[1];
-		//var_dump($username);
 		$nonce = $parser_jwt->{'nonce'};
 
 		$user_id =  username_exists($username);
-		// echo $username . PHP_EOL;
-		// echo $user_id . PHP_EOL;
-		// echo $state . PHP_EOL;
+
 		if ($user_id && strcmp($state, $nonce) == 0) {
 			wp_clear_auth_cookie();
 			wp_set_auth_cookie($user_id);
@@ -255,8 +245,3 @@ wp_register_script('bootstrap-js', 'https://cdn.jsdelivr.net/npm/bootstrap@5.0.2
 wp_enqueue_script('bootstrap-js');
 wp_register_style('bootstrap-css', 'https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/css/bootstrap.min.css');
 wp_enqueue_style('bootstrap-css');
-
-//http://localhost/singpass/wp-json/singpass/v1/jwks
-//http://asliddin.socialservicesconnect.com/wp-json/singpass/v1/jwks
-//http://asliddin.socialservicesconnect.com/wp-json/singpass/v1/signin_oidc?code=wHmXksdAROOBM8mdRbkKLl5VBROhVfP_67jZIiJtmao&state=NGRlZThmNzQtZDU5YS00YTY1LWFkODItYmE4NDA4Y2UwY2Uw
-//http://localhost/singpass/wp-json/singpass/v1/signin_oidc?code=wHmXksdAROOBM8mdRbkKLl5VBROhVfP_67jZIiJtmao&state=NGRlZThmNzQtZDU5YS00YTY1LWFkODItYmE4NDA4Y2UwY2Uw
