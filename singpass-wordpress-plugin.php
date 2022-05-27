@@ -24,6 +24,7 @@ function singpass_button()
 
 function singpass_jwks()
 {
+	echo 'test';
 	echo get_option('public_jwks');
 }
 

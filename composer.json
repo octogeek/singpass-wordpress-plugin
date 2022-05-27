@@ -1,7 +1,5 @@
 {
     "require": {
-        "guzzlehttp/psr7": "^2.2",
-        "guzzlehttp/guzzle": "^7.4",
         "firebase/php-jwt": "^6.1"
     }
 }
